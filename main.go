@@ -1,40 +1,40 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strings"
+)
+
+const (
+	httpPrefix = "http://"
 )
 
 func main() {
-	files := os.Args[1:]
-
-	if len(files) == 0 {
-		fmt.Println("Please, provide filename as call argument")
-		return
-	}
-
-	for _, fileName := range files {
-		counts := make(map[string]int)
-		f, err := os.Open(fileName)
+	for _, url := range os.Args[1:] {
+		url = checkUrlForPrefix(url)
+		resp, err := http.Get(url)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			continue
+			fmt.Printf("fetch: %v\n", err)
+			os.Exit(1)
 		}
-		countLines(f, counts)
-		f.Close()
+		_, er := io.Copy(os.Stdout, resp.Body)
+		resp.Body.Close()
+		if er != nil {
+			fmt.Printf("fetch: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("HTTP Code: %v", resp.Status)
 	}
 }
 
-func countLines(f *os.File, counts map[string]int) {
-	input := bufio.NewScanner(f)
-	for input.Scan() {
-		counts[input.Text()]++
+func checkUrlForPrefix(url string) string {
+	hasPrefix := strings.HasPrefix(url, httpPrefix)
+	if !hasPrefix {
+		url = httpPrefix + url
 	}
 
-	for line, n := range counts {
-		if n > 1 {
-			fmt.Printf("%d\t%s\n", n, line)
-		}
-	}
+	return url
 }
